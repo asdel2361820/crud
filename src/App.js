@@ -1,30 +1,87 @@
 import { isEmpty, size } from 'lodash';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { __SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED } from 'react-dom';
 import shortid from 'shortid';
+import { addDocument, getCollection } from './actions'
 
 function App() {
     const [task, setTask] = useState("")
     const [tasks, setTasks] = useState([])
-    const addTask = (e) => {
-        e.preventDefault()
+    const [editMode, setEditMode] = useState(false)
+    const [id, setId] = useState("")
+    const [error, setError] = useState(null)
+
+    useEffect(() => {
+        (async() => {
+            console.log("hola")
+            const result = await getCollection("tasks")
+            if (result.statusResponse) {
+                setTasks(result.data)
+            }
+
+        })()
+    }, [])
+
+
+    const validForm = () => {
+        let isValid = true
+        setError(null)
         if (isEmpty(task)) {
-            console.log("Task empty")
+            setError("Debes ingresar una tarea ")
+            isValid = false
+        }
+
+        return isValid
+    }
+    const addTask = async(e) => {
+        e.preventDefault()
+
+        if (!validForm()) {
             return
         }
 
-        const newTask = {
-            id: shortid.generate(),
-            name: task
+        const result = await addDocument("tasks", { name: task })
+        if (!result.statusResponse) {
+            console.log(result.error)
+            setError(result.error)
+            return
         }
-        setTasks([...tasks, newTask])
+
+
+        setTasks([...tasks, { id: result.data.id, name: task }])
         setTask("")
     }
+
+    const saveTask = (e) => {
+        e.preventDefault()
+        if (!validForm()) {
+            return
+        }
+        console.log(task)
+
+        const editedTasks = tasks.map(item => item.id === id ? { id, name: task } : item)
+        console.log(editedTasks)
+        setTasks(editedTasks)
+        setEditMode(false)
+        setTask("")
+        setId("")
+
+    }
+
 
     const deleteTask = (id) => {
         const filteredTasks = tasks.filter(task => task.id !== id)
         setTasks(filteredTasks)
 
     }
+
+    const editTask = (theTask) => {
+        setTask(theTask.name)
+        setEditMode(true)
+        console.log(theTask)
+        setId(theTask.id)
+    }
+
     return ( <
         div className = "container mt-5" >
 
@@ -38,7 +95,7 @@ function App() {
         <
         h4 className = "text-center" > Lista de Tareas < /h4> {
             size(tasks) == 0 ? ( <
-                    h5 className = "text-center" > Aun no hay tareas programadas < /h5>
+                    li className = "list-group-item" > Aun no hay tareas programadas < /li>
                 ) : ( <
                     ul className = "list-group" > {
                         tasks.map((task) => ( <
@@ -51,6 +108,8 @@ function App() {
                                 () => deleteTask(task.id) } >
                             Eliminar < /button> <
                             button className = "btn btn-warning btn-sm float-right"
+                            onClick = {
+                                () => editTask(task) }
 
                             >
                             Editar < /button> <
@@ -63,8 +122,8 @@ function App() {
                 /div> <
                 div className = "col-4" >
                 <
-                h4 className = "text-center" > Formulario < /h4> <
-                form onSubmit = { addTask } >
+                h4 className = "text-center" > { editMode ? "Modificar Tarea" : "Agregar Tarea" } < /h4> <
+                form onSubmit = { editMode ? saveTask : addTask } >
                 <
                 input type = "text"
             className = "form-control mb-2"
@@ -72,11 +131,13 @@ function App() {
             onChange = {
                 (text) => setTask(text.target.value) }
             value = { task }
-            /> <
+            /> {
+                error && < span className = "text-danger" > { error } < /span>
+            } <
             button
-            className = "btn btn-dark btn-block"
+            className = { editMode ? "btn btn-warning btn-block" : "btn btn-dark btn-block" }
             type = "submit" >
-                Agregar < /button>
+                { editMode ? "Guardar" : "Agregar" } < /button>
 
             <
             /form> <
